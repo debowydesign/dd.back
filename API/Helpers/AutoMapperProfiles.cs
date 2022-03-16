@@ -16,7 +16,7 @@ namespace API.Helpers
             CreateMap<User, MemberDto>();
 
             
-            //CreateMap<MemberUpdateDto, AppUser>();
+            CreateMap<MemberUpdateDto, User>();
         }
     }
 }

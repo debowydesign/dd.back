@@ -48,5 +48,16 @@
         "City": "Rzeszów",
         "Street": "Nowosądecka 14/14",
         "PhoneNumber": "345987123"
+    },
+
+    {
+        "Username": "michal",
+        "Gender": "male",
+        "Email": "michal@gmail.com",
+        "FirstName": "Michal",
+        "LastName": "Plec",
+        "City": "Rzeszów",
+        "Street": "Końska 14/14",
+        "PhoneNumber": "752325725"
     }
-] 
+]
