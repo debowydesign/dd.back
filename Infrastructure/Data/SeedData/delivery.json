@@ -1,0 +1,30 @@
+[
+  {
+    "Id": 1,
+    "ShortName": "DHL - pobranie",
+    "Description": "Szybka i bezpieczna dostawa kurierem DHL",
+    "DeliveryTime": "1-2 dni",
+    "Price": 35
+  },
+  {
+    "Id": 2,
+    "ShortName": "DPD - pobranie",
+    "Description": "Szybka dostawa zazwyczaj już na drugi dzień",
+    "DeliveryTime": "1 dzień",
+    "Price": 50
+  },
+  {
+    "Id": 3,
+    "ShortName": "Pocztex - pobranie",
+    "Description": "Standardowa dosatwa kurierem Poczty Polskiej",
+    "DeliveryTime": "3-5 dni",
+    "Price": 2
+  },
+  {
+    "Id": 4,
+    "ShortName": "Odbiór osobisty",
+    "Description": "Odbiór osobisty w salonie Dębowy Design",
+    "DeliveryTime": "natychmiast",
+    "Price": 0
+  }
+]
