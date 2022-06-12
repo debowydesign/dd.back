@@ -4,4 +4,4 @@
 
 ## Projekt zespołowy
 
-# Zespół: Dominik Bednarz, Michał Kycia, Patryk Dec
+# Zespół: Dominik Bednarz i Michał Kycia.
