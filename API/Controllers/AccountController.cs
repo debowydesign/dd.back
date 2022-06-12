@@ -1,78 +1,118 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
-using API.Data;
 using API.DTOs;
-using API.Entities;
-using API.Interfaces;
+using API.Errors;
+using API.Extensions;
+using AutoMapper;
+using Core.Entities.Identity;
+using Core.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
-namespace API.Controllers
+namespace API.Controllers;
+
+public class AccountController : BaseApiController
 {
-    public class AccountController : BaseApiController
+    private readonly UserManager<AppUser> _userManager;
+    private readonly SignInManager<AppUser> _signInManager;
+    private readonly ITokenService _tokenService;
+    private readonly IMapper _mapper;
+
+    public AccountController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, 
+        ITokenService tokenService, IMapper mapper)
     {
-        private readonly DataContext _context;
-        private readonly ITokenService _tokenService;
-        public AccountController(DataContext context, ITokenService tokenService)
+        _userManager = userManager;
+        _signInManager = signInManager;
+        _tokenService = tokenService;
+        _mapper = mapper;
+    }
+
+    [Authorize]
+    [HttpGet]
+    public async Task<ActionResult<UserDto>> GetCurrentUser()
+    {
+        var user = await _userManager.FindByEmailFromClaimsPrinciple(User);
+
+        return new UserDto
         {
-            _tokenService = tokenService;
-            _context = context;
-        }
+            Email = user.Email,
+            Token = _tokenService.CreateToken(user),
+            DisplayName = user.DisplayName
+        };
+    }
 
-        [HttpPost("register")]
-        public async Task<ActionResult<UserDto>> Register(RegisterDto registerDto) 
+    [HttpGet("emailexists")]
+    public async Task<ActionResult<bool>> CheckEmailExistsAsync([FromQuery] string email)
+    {
+        return await _userManager.FindByEmailAsync(email) != null;
+    }
+
+    [Authorize]
+    [HttpGet("address")]
+    public async Task<ActionResult<AddressDto>> GetUserAddress()
+    { 
+        var user = await _userManager.FindByUserByClaimsPrincipleWithAddressAsync(User);
+
+        return _mapper.Map<Address, AddressDto>(user.Address);
+    }
+
+    [Authorize]
+    [HttpPut("address")]
+    public async Task<ActionResult<AddressDto>> UpdateUserAddress(AddressDto addressDto)
+    {
+        var user = await _userManager.FindByUserByClaimsPrincipleWithAddressAsync(User);
+
+        user.Address = _mapper.Map<AddressDto, Address>(addressDto);
+
+        var result = await _userManager.UpdateAsync(user);
+
+        if (result.Succeeded) return Ok(_mapper.Map<Address, AddressDto>(user.Address));
+
+        return BadRequest("Problem updating the user");
+    }
+
+    [HttpPost("login")]
+    public async Task<ActionResult<UserDto>> Login(LoginDto loginDto)
+    {
+        var user = await _userManager.FindByEmailAsync(loginDto.Email);
+
+        if (user == null) return Unauthorized(new ApiResponse(401));
+
+        var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password, false);
+
+        if (!result.Succeeded) return Unauthorized(new ApiResponse(401));
+
+        return new UserDto
         {
-            if (await UserExist(registerDto.Username)) return BadRequest("Nazwa uzytkownika jest zajeta");
+            Email = user.Email,
+            Token = _tokenService.CreateToken(user),
+            DisplayName = user.DisplayName
+        };
+    }
 
-            using var hmac = new HMACSHA512();
-
-            var user = new User
-            {
-                Username = registerDto.Username.ToLower(),
-                PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(registerDto.Password)),
-                PasswordSalt = hmac.Key
-            };
-
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            return new UserDto
-            {
-                Username = user.Username,
-                Token = _tokenService.CreateToken(user)
-            };
-        }
-
-        [HttpPost("login")]
-        public async Task<ActionResult<UserDto>> Login(LoginDto loginDto)
+    [HttpPost("register")]
+    public async Task<ActionResult<UserDto>> Register(RegisterDto registerDto)
+    {
+        if (CheckEmailExistsAsync(registerDto.Email).Result.Value)
         {
-            var user = await _context.Users.SingleOrDefaultAsync(x => x.Username == loginDto.Username);
-
-            if (user == null) return Unauthorized("Niepoprawna nazwa uzytkownika");
-
-            using var hmac = new HMACSHA512(user.PasswordSalt);
-
-            var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(loginDto.Password));
-
-            for (int i = 0; i < computedHash.Length; i++)
-            {
-                if(computedHash[i] != user.PasswordHash[i]) return Unauthorized("Niepoprawne haslo");
-            }
-
-            return new UserDto 
-            {
-                Username = user.Username,
-                Token = _tokenService.CreateToken(user)
-            };
+            return new BadRequestObjectResult(new ApiValidationErrorResponse {Errors = new[] {"Email address is in use"}});
         }
-
-        private async Task<bool> UserExist(string username)
+        
+        var user = new AppUser
         {
-            return await _context.Users.AnyAsync(x => x.Username == username.ToLower());
-        }
+            DisplayName = registerDto.DisplayName,
+            Email = registerDto.Email,
+            UserName = registerDto.Email
+        };
+
+        var result = await _userManager.CreateAsync(user, registerDto.Password);
+
+        if (!result.Succeeded) return BadRequest(new ApiResponse(400));
+
+        return new UserDto
+        {
+            DisplayName = user.DisplayName,
+            Token = _tokenService.CreateToken(user),
+            Email = user.Email
+        };
     }
 }
